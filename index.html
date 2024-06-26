@@ -14,17 +14,18 @@
             margin: 0;
             background-color: #f0f0f0;
         }
-        .game-container {
+        .container {
             background-color: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
         }
         .board {
-            display: grid;
+            display: inline-grid;
             grid-template-columns: repeat(7, 50px);
             grid-gap: 5px;
-            margin-bottom: 20px;
+            margin: 20px 0;
         }
         .cell {
             width: 50px;
@@ -35,13 +36,29 @@
         }
         .cell.red { background-color: red; }
         .cell.yellow { background-color: yellow; }
+        #difficulty, #startButton {
+            margin: 10px;
+            padding: 5px 10px;
+        }
+        #gameSetup, #gamePlay { display: none; }
     </style>
 </head>
 <body>
-    <div class="game-container">
+    <div class="container">
         <h1>AIとのコネクトフォー</h1>
-        <div class="board" id="board"></div>
-        <p id="status"></p>
+        <div id="gameSetup">
+            <h2>難易度を選択してください</h2>
+            <select id="difficulty">
+                <option value="easy">簡単</option>
+                <option value="medium" selected>普通</option>
+                <option value="hard">難しい</option>
+            </select>
+            <button id="startButton">ゲーム開始</button>
+        </div>
+        <div id="gamePlay">
+            <div class="board" id="board"></div>
+            <p id="status"></p>
+        </div>
     </div>
 
     <script>
@@ -53,9 +70,20 @@
 
         let board = Array(ROWS).fill().map(() => Array(COLS).fill(EMPTY));
         let gameOver = false;
+        let difficulty = 'medium';
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+
+        function startGame() {
+            difficulty = document.getElementById('difficulty').value;
+            document.getElementById('gameSetup').style.display = 'none';
+            document.getElementById('gamePlay').style.display = 'block';
+            createBoard();
+        }
 
         function createBoard() {
             const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
             for (let row = 0; row < ROWS; row++) {
                 for (let col = 0; col < COLS; col++) {
                     const cell = document.createElement('div');
@@ -188,7 +216,11 @@
             return 0;
         }
 
-        function minimax(board, depth, isMaximizing) {
+        function minimax(board, depth, isMaximizing, alpha, beta, startTime) {
+            if (Date.now() - startTime > 1000) {  // 1秒以上経過したら打ち切り
+                return isMaximizing ? -Infinity : Infinity;
+            }
+
             const score = evaluate(board);
 
             if (score === 100) return score - depth;
@@ -202,8 +234,10 @@
                     const row = getLowestEmptyRow(col);
                     if (row !== -1) {
                         board[row][col] = AI;
-                        bestScore = Math.max(bestScore, minimax(board, depth - 1, false));
+                        bestScore = Math.max(bestScore, minimax(board, depth - 1, false, alpha, beta, startTime));
                         board[row][col] = EMPTY;
+                        alpha = Math.max(alpha, bestScore);
+                        if (beta <= alpha) break;
                     }
                 }
                 return bestScore;
@@ -213,8 +247,10 @@
                     const row = getLowestEmptyRow(col);
                     if (row !== -1) {
                         board[row][col] = PLAYER;
-                        bestScore = Math.min(bestScore, minimax(board, depth - 1, true));
+                        bestScore = Math.min(bestScore, minimax(board, depth - 1, true, alpha, beta, startTime));
                         board[row][col] = EMPTY;
+                        beta = Math.min(beta, bestScore);
+                        if (beta <= alpha) break;
                     }
                 }
                 return bestScore;
@@ -224,11 +260,18 @@
         function findBestMove(board) {
             let bestScore = -Infinity;
             let bestMove;
+            const depthMap = {
+                'easy': 2,
+                'medium': 4,
+                'hard': 5
+            };
+            const depth = depthMap[difficulty];
+
             for (let col = 0; col < COLS; col++) {
                 const row = getLowestEmptyRow(col);
                 if (row !== -1) {
                     board[row][col] = AI;
-                    const score = minimax(board, 6, false);
+                    const score = minimax(board, depth, false, -Infinity, Infinity, Date.now());
                     board[row][col] = EMPTY;
                     if (score > bestScore) {
                         bestScore = score;
@@ -239,7 +282,7 @@
             return bestMove;
         }
 
-        createBoard();
+        document.getElementById('gameSetup').style.display = 'block';
     </script>
 </body>
 </html>
