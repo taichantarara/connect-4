@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIとのコネクトフォー</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(7, 50px);
+            grid-gap: 5px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .cell.red { background-color: red; }
+        .cell.yellow { background-color: yellow; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>AIとのコネクトフォー</h1>
+        <div class="board" id="board"></div>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        const ROWS = 6;
+        const COLS = 7;
+        const EMPTY = 0;
+        const PLAYER = 1;
+        const AI = 2;
+
+        let board = Array(ROWS).fill().map(() => Array(COLS).fill(EMPTY));
+        let gameOver = false;
+
+        function createBoard() {
+            const boardElement = document.getElementById('board');
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.col = col;
+                    cell.addEventListener('click', () => makeMove(col));
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                const row = Math.floor(index / COLS);
+                const col = index % COLS;
+                cell.className = 'cell';
+                if (board[row][col] === PLAYER) cell.classList.add('red');
+                if (board[row][col] === AI) cell.classList.add('yellow');
+            });
+        }
+
+        function makeMove(col) {
+            if (gameOver) return;
+            const row = getLowestEmptyRow(col);
+            if (row === -1) return;
+
+            board[row][col] = PLAYER;
+            updateBoard();
+
+            if (checkWin(PLAYER)) {
+                gameOver = true;
+                document.getElementById('status').textContent = 'プレイヤーの勝利！';
+                return;
+            }
+
+            if (isBoardFull()) {
+                gameOver = true;
+                document.getElementById('status').textContent = '引き分け！';
+                return;
+            }
+
+            setTimeout(aiMove, 500);
+        }
+
+        function aiMove() {
+            const bestMove = findBestMove(board);
+            const row = getLowestEmptyRow(bestMove);
+            board[row][bestMove] = AI;
+            updateBoard();
+
+            if (checkWin(AI)) {
+                gameOver = true;
+                document.getElementById('status').textContent = 'AIの勝利！';
+                return;
+            }
+
+            if (isBoardFull()) {
+                gameOver = true;
+                document.getElementById('status').textContent = '引き分け！';
+            }
+        }
+
+        function getLowestEmptyRow(col) {
+            for (let row = ROWS - 1; row >= 0; row--) {
+                if (board[row][col] === EMPTY) return row;
+            }
+            return -1;
+        }
+
+        function checkWin(player) {
+            // horizontal
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS - 3; col++) {
+                    if (board[row][col] === player &&
+                        board[row][col+1] === player &&
+                        board[row][col+2] === player &&
+                        board[row][col+3] === player) {
+                        return true;
+                    }
+                }
+            }
+
+            // vertical
+            for (let row = 0; row < ROWS - 3; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (board[row][col] === player &&
+                        board[row+1][col] === player &&
+                        board[row+2][col] === player &&
+                        board[row+3][col] === player) {
+                        return true;
+                    }
+                }
+            }
+
+            // diagonal (down-right)
+            for (let row = 0; row < ROWS - 3; row++) {
+                for (let col = 0; col < COLS - 3; col++) {
+                    if (board[row][col] === player &&
+                        board[row+1][col+1] === player &&
+                        board[row+2][col+2] === player &&
+                        board[row+3][col+3] === player) {
+                        return true;
+                    }
+                }
+            }
+
+            // diagonal (up-right)
+            for (let row = 3; row < ROWS; row++) {
+                for (let col = 0; col < COLS - 3; col++) {
+                    if (board[row][col] === player &&
+                        board[row-1][col+1] === player &&
+                        board[row-2][col+2] === player &&
+                        board[row-3][col+3] === player) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        function isBoardFull() {
+            return board.every(row => row.every(cell => cell !== EMPTY));
+        }
+
+        function evaluate(board) {
+            if (checkWin(AI)) return 100;
+            if (checkWin(PLAYER)) return -100;
+            return 0;
+        }
+
+        function minimax(board, depth, isMaximizing) {
+            const score = evaluate(board);
+
+            if (score === 100) return score - depth;
+            if (score === -100) return score + depth;
+            if (isBoardFull()) return 0;
+            if (depth === 0) return score;
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let col = 0; col < COLS; col++) {
+                    const row = getLowestEmptyRow(col);
+                    if (row !== -1) {
+                        board[row][col] = AI;
+                        bestScore = Math.max(bestScore, minimax(board, depth - 1, false));
+                        board[row][col] = EMPTY;
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let col = 0; col < COLS; col++) {
+                    const row = getLowestEmptyRow(col);
+                    if (row !== -1) {
+                        board[row][col] = PLAYER;
+                        bestScore = Math.min(bestScore, minimax(board, depth - 1, true));
+                        board[row][col] = EMPTY;
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        function findBestMove(board) {
+            let bestScore = -Infinity;
+            let bestMove;
+            for (let col = 0; col < COLS; col++) {
+                const row = getLowestEmptyRow(col);
+                if (row !== -1) {
+                    board[row][col] = AI;
+                    const score = minimax(board, 4, false);
+                    board[row][col] = EMPTY;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = col;
+                    }
+                }
+            }
+            return bestMove;
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
