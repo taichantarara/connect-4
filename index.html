@@ -228,7 +228,7 @@
                 const row = getLowestEmptyRow(col);
                 if (row !== -1) {
                     board[row][col] = AI;
-                    const score = minimax(board, 10, false);
+                    const score = minimax(board, 6, false);
                     board[row][col] = EMPTY;
                     if (score > bestScore) {
                         bestScore = score;
